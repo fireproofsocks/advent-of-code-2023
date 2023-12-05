@@ -23,6 +23,8 @@ defmodule Aoc.Day5 do
       # Any source numbers that aren't mapped correspond to the same destination
       def seed_to_soil(unmapped), do: unmapped
 
+  A special case is made for the `seeds/0` function (it returns a list of integers)
+
   Note: You have to re-compile if you swap between inputs.
   """
 
@@ -38,7 +40,7 @@ defmodule Aoc.Day5 do
 
     case fn_name do
       "seeds" ->
-        def unquote(:"#{fn_name}")() do
+        def seeds() do
           unquote(raw_input |> String.split(" ", trim: true) |> Enum.map(&String.to_integer/1))
         end
 
@@ -48,6 +50,7 @@ defmodule Aoc.Day5 do
           |> String.split("\n", trim: true)
           |> Enum.map(fn x -> x |> String.split(" ") |> Enum.map(&String.to_integer/1) end)
 
+        # One function def per range (thanks to guard clauses)
         Enum.each(dst_src_rng_list, fn [dest_rng_start, src_rng_start, rng] ->
           def unquote(:"#{other_fn}")(input)
               when input >= unquote(src_rng_start) and input < unquote(src_rng_start + rng) do
