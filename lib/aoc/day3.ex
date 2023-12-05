@@ -110,9 +110,14 @@ defmodule Aoc.Day3 do
     |> Map.keys()
     |> MapSet.new()
     |> MapSet.intersection(schema.symbols_coords)
+    # The intersection reveals coordinates that contain "number IDs" that point
+    # to actual numbers. A number may have multiple coordinates that point to
+    # the same number ID.
+    # First, look up the number IDs (possibly includes duplicates)
     |> Enum.map(fn xy_coord ->
       Map.fetch!(schema.parts_coords, xy_coord)
     end)
+    # Then, de-duplicate the list and resolve the number IDs to the actual numbers
     |> Enum.uniq()
     |> Enum.map(fn number_id ->
       Map.fetch!(schema.num_registry, number_id)
