@@ -1,6 +1,6 @@
 defmodule Aoc.Day5 do
   @moduledoc """
-  https://adventofcode.com/2023/day/4
+  https://adventofcode.com/2023/day/5
 
   This solution relies on macros to define Elixir functions to do the mapping
   of the numbers.  We can't define a function clause for each number in the
@@ -8,7 +8,9 @@ defmodule Aoc.Day5 do
   `Map.get(map, number, number)` -- the ranges of numbers are too freeking big.
   Instead, we define functions with guard clauses and calculate simple offsets.
   This way, mapping has one function clause per range, plus one for the catch-all
-  passthru.
+  passthru. So with an input file of 1000 lines, you end up with at most 1000
+  different function clauses defined (one for each range plus a fallback for each
+  mapping).
 
   The generated functions will look something like this, where guard clauses
   capture the source range start (123) and the function calculates the output as
