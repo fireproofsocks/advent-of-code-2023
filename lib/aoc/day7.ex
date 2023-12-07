@@ -22,24 +22,6 @@ defmodule Aoc.Day7 do
     def new("J"), do: %__MODULE__{label: "J", rank: 11}
     def new("T"), do: %__MODULE__{label: "T", rank: 10}
     def new(val), do: %__MODULE__{label: val, rank: String.to_integer(val)}
-
-    @doc """
-    Compares 2 `%Card{}` structs. Used by `Enum.sort/2` to rank cards.
-
-    Returns:
-
-    - `:eq` when both cards are equal
-    - `:gt` when card1 is greater than card2
-    - `:gl` when card1 is less than card2
-    """
-    def compare(%__MODULE__{rank: rank1}, %__MODULE__{rank: rank2}) when rank1 == rank2,
-      do: :eq
-
-    def compare(%__MODULE__{rank: rank1}, %__MODULE__{rank: rank2}) when rank1 > rank2,
-      do: :gt
-
-    def compare(%__MODULE__{rank: rank1}, %__MODULE__{rank: rank2}) when rank1 < rank2,
-      do: :lt
   end
 
   defmodule Hand do
@@ -55,7 +37,6 @@ defmodule Aoc.Day7 do
       :three_of_a_kind?,
       :two_pair?,
       :pair?,
-      # :high_card_in_set,
       :high_card
     ]
 
@@ -74,7 +55,6 @@ defmodule Aoc.Day7 do
         three_of_a_kind?: Map.has_key?(grouped, 3),
         two_pair?: length(Map.get(grouped, 2, [])) == 2,
         pair?: Map.has_key?(grouped, 2),
-        # high_card_in_set: high_card_in_set(grouped),
         high_card: all_distinct?(cards)
       }
     end
@@ -87,7 +67,7 @@ defmodule Aoc.Day7 do
 
     - `:eq` when both hands are equal
     - `:gt` when hand1 outscores hand2
-    - `:gl` when hand1 underscores hand2
+    - `:lt` when hand1 underscores hand2
     """
     def compare(%__MODULE__{five_of_a_kind?: true}, %__MODULE__{five_of_a_kind?: false}), do: :gt
     def compare(%__MODULE__{five_of_a_kind?: false}, %__MODULE__{five_of_a_kind?: true}), do: :lt
@@ -185,6 +165,11 @@ defmodule Aoc.Day7 do
     |> Enum.reduce(0, fn {%Hand{bid: bid}, i}, acc -> acc + bid * i end)
   end
 
+  @doc """
+  J now means Joker.
+
+  Using Sample input: 5905
+  """
   def solve_pt2(_opts \\ []) do
   end
 end
