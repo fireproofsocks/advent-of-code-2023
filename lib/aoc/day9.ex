@@ -3,6 +3,9 @@ defmodule Aoc.Day9 do
   Mirage Maintenance
   https://adventofcode.com/2023/day/9
 
+  This problem deals with recursive list processing.
+  This one was pretty straight-forward for me; this was the shortest amount of time
+  between solving parts 1 and 2 (literally had to add 1 extra line).
   """
   @doc """
 
@@ -11,14 +14,16 @@ defmodule Aoc.Day9 do
       iex> Aoc.Day9.solve_pt1("priv/day9_example.txt")
       iex> Aoc.Day9.solve_pt1("priv/day9.txt")
   """
-  def solve_pt1(input \\ @external_resource) do
+  def solve_pt1(input) do
     input
     |> parse_as_lists_of_ints()
-    |> Enum.map(&find_next_predicted_val/1)
+    |> Enum.map(&find_next_val/1)
     |> Enum.sum()
   end
 
   @doc """
+  Extrapolate backwards!
+  Part 2 is the same as part 1, we just reverse the input lists.
 
   ## Examples
 
@@ -26,8 +31,14 @@ defmodule Aoc.Day9 do
       iex> Aoc.Day9.solve_pt2("priv/day9_example.txt")
   """
   def solve_pt2(input) do
-    # TODO
     input
+    |> parse_as_lists_of_ints()
+    |> Enum.map(fn list ->
+      list
+      |> Enum.reverse()
+      |> find_next_val()
+    end)
+    |> Enum.sum()
   end
 
   defp parse_as_lists_of_ints(file) do
@@ -42,27 +53,25 @@ defmodule Aoc.Day9 do
     end)
   end
 
-  defp find_next_predicted_val(list) do
-    process(list)
-  end
+  # Chomp through the lists, generating intermediary lists by accumulating the differences
+  # between the first 2 numbers until you get to all zeros.
+  # 1   3   6  10  15  21
+  #  2   3   4   5   6
+  #   1   1   1   1
+  #    0   0   0
+  defp find_next_val(list, acc_diffs \\ [])
 
-  @doc """
-  1   3   6  10  15  21
-   2   3   4   5   6
-    1   1   1   1
-      0   0   0
-  """
-  def process(list, acc_diffs \\ [])
-
-  def process([last_member], acc_diffs) do
+  defp find_next_val([last_member], acc_diffs) do
     if Enum.all?(acc_diffs, fn x -> x == 0 end) do
       last_member
     else
-      last_member + (acc_diffs |> Enum.reverse() |> process([]))
+      # we prepended onto the accumulator, so reverse the list before using as
+      # input in the next round of processing.
+      last_member + (acc_diffs |> Enum.reverse() |> find_next_val())
     end
   end
 
-  def process([a, b | tail], acc_diffs) do
-    process([b] ++ tail, [b - a | acc_diffs])
+  defp find_next_val([a, b | tail], acc_diffs) do
+    find_next_val([b] ++ tail, [b - a | acc_diffs])
   end
 end
