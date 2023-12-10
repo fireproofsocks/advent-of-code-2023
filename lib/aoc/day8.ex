@@ -41,7 +41,12 @@ defmodule Aoc.Day8 do
   end
 
   # Isolated this for re-use in pt2. Returns number of steps taken
-  @spec traverse(dir_str :: String.t(), node_map :: map(), start_node :: String.t(), is_end_fn :: fun()) :: non_neg_integer()
+  @spec traverse(
+          dir_str :: String.t(),
+          node_map :: map(),
+          start_node :: String.t(),
+          is_end_fn :: fun()
+        ) :: non_neg_integer()
   defp traverse(dir_str, node_map, start_node, is_end_fn) do
     dir_str
     |> String.graphemes()
