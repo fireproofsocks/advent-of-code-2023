@@ -14,66 +14,18 @@ defmodule Aoc.Day10Test do
     end
   end
 
-  describe "Node.neighbors/2" do
+  describe "Node.connections/2" do
     test "ok" do
       grid = Grid.from_file("priv/day10_ex2.txt")
 
       node = %Node{
         loc: {4, 2},
-        symbol: "F",
-        visited?: false,
-        distance: :infinity
+        symbol: "F"
       }
 
-      expected =
-        MapSet.new([
-          %Node{loc: {3, 2}, symbol: "J"},
-          %Node{loc: {5, 2}, symbol: "J"},
-          %Node{loc: {4, 3}, symbol: "-"},
-          %Node{loc: {4, 1}, symbol: "|"}
-        ])
+      expected = MapSet.new([{4, 3}, {5, 2}])
 
-      actual = Node.neighbors(grid, node.loc)
-      assert MapSet.equal?(actual, expected)
-    end
-  end
-
-  describe "Node.open_neighbors/2" do
-    test "ok 1" do
-      grid = Grid.from_file("priv/day10_ex2.txt")
-
-      node = %Node{
-        loc: {4, 2},
-        symbol: "F",
-        visited?: false,
-        distance: :infinity
-      }
-
-      expected =
-        MapSet.new([
-          %Node{loc: {5, 2}, symbol: "J"},
-          %Node{loc: {4, 3}, symbol: "-"}
-        ])
-
-      actual = Node.open_neighbors(grid, node.loc)
-      assert MapSet.equal?(actual, expected)
-    end
-
-    test "ok 2" do
-      grid = Grid.from_file("priv/day10_ex2.txt")
-
-      node = %Node{
-        loc: {3, 2},
-        symbol: "J"
-      }
-
-      expected =
-        MapSet.new([
-          %Node{loc: {3, 1}, symbol: "S"},
-          %Node{loc: {2, 2}, symbol: "F"}
-        ])
-
-      actual = Node.open_neighbors(grid, node.loc)
+      actual = Node.connections(grid, node.loc)
       assert MapSet.equal?(actual, expected)
     end
   end
