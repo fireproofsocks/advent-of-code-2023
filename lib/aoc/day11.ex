@@ -64,11 +64,21 @@ defmodule Aoc.Day11 do
   @doc """
   Calculate the "Taxicab Distance" between 2 points -- fudge the result depending on how many
   empty rows or columns get crossed.
+  Expansion factor: for each empty row or column, how many rows or columns is it replaced with?
+  Default: 2
   """
-  def distance({r1, c1}, {r2, c2}, empty_rows \\ MapSet.new(), empty_cols \\ MapSet.new()) do
+  def distance(
+        {r1, c1},
+        {r2, c2},
+        empty_rows \\ MapSet.new(),
+        empty_cols \\ MapSet.new(),
+        expansion_factor \\ 2
+      ) do
     expand_rows = empty_rows |> MapSet.intersection(MapSet.new(r1..r2)) |> MapSet.size()
     expand_cols = empty_cols |> MapSet.intersection(MapSet.new(c1..c2)) |> MapSet.size()
-    abs(r1 - r2) + abs(c1 - c2) + expand_rows + expand_cols
+
+    abs(r1 - r2) + abs(c1 - c2) + expand_rows * (expansion_factor - 1) +
+      expand_cols * (expansion_factor - 1)
   end
 
   def solve_pt1(file) do
@@ -81,6 +91,24 @@ defmodule Aoc.Day11 do
     |> Enum.map(fn pair ->
       [coords1, coords2] = MapSet.to_list(pair)
       distance(coords1, coords2, empty_rows, empty_cols)
+    end)
+    |> Enum.sum()
+  end
+
+  @doc """
+  Same as part1, except now we don't just replace the empty rows/columns with 2 rows,
+  we replace them with ONE MILLION ROWS.
+  """
+  def solve_pt2(file, expansion_factor \\ 1_000_000) do
+    set = galaxy_coords_from_file(file)
+    empty_rows = empty_rows(set)
+    empty_cols = empty_columns(set)
+
+    set
+    |> Permutation.permute!(cardinality: 2)
+    |> Enum.map(fn pair ->
+      [coords1, coords2] = MapSet.to_list(pair)
+      distance(coords1, coords2, empty_rows, empty_cols, expansion_factor)
     end)
     |> Enum.sum()
   end
