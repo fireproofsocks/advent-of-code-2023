@@ -1,0 +1,11 @@
+alias Aoc.Day1
+alias Aoc.Day2
+alias Aoc.Day3
+alias Aoc.Day4
+alias Aoc.Day5
+alias Aoc.Day6
+alias Aoc.Day7
+alias Aoc.Day8
+alias Aoc.Day9
+alias Aoc.Day10
+alias Aoc.Day11

@@ -21,7 +21,8 @@ defmodule Aoc.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:benchee, "~> 1.2"}
+      {:benchee, "~> 1.2"},
+      {:permutation, "~> 0.2.0"}
     ]
   end
 end
