@@ -3,7 +3,6 @@ defmodule Aoc.Day10Test do
   alias Aoc.Day10
   alias Aoc.Day10.Grid
   alias Aoc.Day10.Node
-  alias Aoc.Day10.Transformer
 
   describe "solve_pt1/1" do
     test "example 1 (simple)" do
@@ -21,7 +20,11 @@ defmodule Aoc.Day10Test do
     end
 
     test "example 2 (a little harder)" do
-      assert 1 = Day10.solve_pt1("priv/day10_ex2.txt")
+      assert 1 = Day10.solve_pt2("priv/day10_ex2.txt")
+    end
+
+    test "actual" do
+      assert 527 = Day10.solve_pt2("priv/day10.txt")
     end
   end
 
@@ -113,44 +116,20 @@ defmodule Aoc.Day10Test do
     end
   end
 
-  describe "Transformer.convert_s/2" do
-    test "ok F" do
-      grid = Grid.from_file("priv/day10_ex1.txt")
-      start_node = Grid.start_node(grid)
-      assert "F" == Transformer.convert_s(grid, start_node.loc)
-    end
-  end
-
-  describe "erase/2" do
-    test "ok" do
-      actual =
-        Day10.erase(
-          MapSet.new([
-            {1, 1},
-            {1, 3},
-            {2, 1},
-            {2, 3},
-            {3, 1},
-            {3, 3}
-          ]),
-          {1, 1}
-        )
-
-      expected =
-        MapSet.new([
-          {1, 3},
-          {2, 3},
-          {3, 3}
-        ])
-
-      assert MapSet.equal?(actual, expected)
-    end
-  end
-
-  describe "transforming file" do
+  describe "parse_inny" do
     test "foo" do
-      grid = Transformer.zoom_in("priv/day10_ex1.txt", "F")
-      IO.inspect(grid)
+      grid = Grid.from_file("priv/day10_ex3.txt")
+
+      start_node = Grid.start_node(grid)
+
+      s = Day10.s_is_a(grid, start_node.loc)
+
+      grid = Map.put(grid, start_node.loc, %Node{start_node | symbol: s})
+
+      IO.inspect(Grid.row(grid, 2))
+      # IO.inspect(Grid.row_cnt(grid))
+      # IO.inspect(Map.put(grid, start_node.loc, %{start_node, symbol: s}))
+      # IO.inspect(Grid.row(grid, 2))
     end
   end
 end

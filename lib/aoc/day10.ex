@@ -119,123 +119,22 @@ defmodule Aoc.Day10 do
       |> Enum.find(:not_found, fn {_coords, node} -> node.symbol == "S" end)
       |> elem(1)
     end
-  end
 
-  defmodule Transformer do
-    alias Aoc.Day10.Node
-
-    @map %{
-      "|" => [
-        ".|.",
-        ".|.",
-        ".|."
-      ],
-      "-" => [
-        "...",
-        "---",
-        "..."
-      ],
-      "L" => [
-        ".|.",
-        ".L-",
-        "..."
-      ],
-      "J" => [
-        ".|.",
-        "-J.",
-        "..."
-      ],
-      "7" => [
-        "...",
-        "-7.",
-        ".|."
-      ],
-      "F" => [
-        "...",
-        ".F-",
-        ".|."
-      ],
-      "." => [
-        "...",
-        "...",
-        "..."
-      ],
-      ## ???
-      "S" => [
-        "???",
-        "???",
-        "???"
-      ]
-    }
-    @doc """
-    Transforms the input in the given file to stretch it out by zooming in on it.
-
-    We need to know how the `S` start character is behaving.
-    """
-    @spec zoom_in(file :: String.t(), s_as :: String.t()) :: Grid.t()
-    def zoom_in(file, s_as) do
-      file
-      |> File.stream!()
-      |> Enum.flat_map(fn line -> convert_line(line, s_as) end)
-      |> Enum.with_index(1)
-      |> Enum.reduce(%{}, fn {line, line_number}, acc ->
-        line
-        |> String.trim()
-        |> String.graphemes()
-        |> Enum.with_index(1)
-        |> Enum.reduce(acc, fn {char, column}, acc ->
-          Map.put(acc, {line_number, column}, %Node{
-            loc: {line_number, column},
-            symbol: char
-          })
-        end)
-      end)
+    @spec row(t(), non_neg_integer()) :: [String.t()]
+    def row(grid, row_number) do
+      grid
+      |> Map.keys()
+      |> Enum.filter(fn {row, _col} -> row == row_number end)
+      |> Enum.sort()
+      |> Enum.map(fn loc -> Map.fetch!(grid, loc).symbol end)
     end
 
-    @doc """
-    s_as is the character that "S" actually behaves as. We need to know its actual
-    function for the conversion.
-    """
-    def convert_line(line, s_as) do
-      line
-      |> String.trim()
-      |> String.graphemes()
-      |> Enum.map(fn
-        "S" ->
-          [l1, <<c1::binary-size(1), _::binary-size(1), c3::binary-size(1)>>, l3] =
-            Map.fetch!(@map, s_as)
-
-          [l1, c1 <> "S" <> c3, l3]
-
-        char ->
-          Map.fetch!(@map, char)
-      end)
-      |> Enum.reduce(["", "", ""], fn [l1, l2, l3], [acc1, acc2, acc3] ->
-        [acc1 <> l1, acc2 <> l2, acc3 <> l3]
-      end)
-    end
-
-    @doc """
-    S is ambiguous: its actual symbol depends on its context in the grid.
-    This is sort of the opposite business logic in the `open?/2` function.
-    """
-    def convert_s(grid, {s_line, s_col} = s_loc) do
-      connections = Node.connections(grid, s_loc)
-
-      Enum.reduce(connections, %{}, fn
-        {l, c}, acc when l == s_line and s_col - 1 == c -> Map.put(acc, :west, true)
-        {l, c}, acc when l == s_line and s_col + 1 == c -> Map.put(acc, :east, true)
-        {l, c}, acc when c == s_col and s_line + 1 == l -> Map.put(acc, :south, true)
-        {l, c}, acc when c == s_col and s_line - 1 == l -> Map.put(acc, :north, true)
-      end)
-      |> case do
-        %{north: _, south: _} -> "|"
-        %{east: _, west: _} -> "-"
-        %{north: _, east: _} -> "L"
-        %{north: _, west: _} -> "J"
-        %{south: _, west: _} -> "7"
-        %{south: _, east: _} -> "F"
-      end
+    def row_cnt(grid) do
+      grid
+      |> Map.keys()
+      |> Enum.unzip()
+      |> elem(0)
+      |> Enum.max()
     end
   end
 
@@ -266,6 +165,98 @@ defmodule Aoc.Day10 do
     grid
     |> Map.fetch!(next_loc)
     |> walk(grid, [this_node.loc | acc])
+  end
+
+  @doc """
+  S is ambiguous: its actual symbol depends on its context in the grid.
+  This is sort of the opposite business logic in the `open?/2` function.
+  """
+  def s_is_a(grid, {s_line, s_col} = s_loc) do
+    connections = Node.connections(grid, s_loc)
+
+    Enum.reduce(connections, %{}, fn
+      {l, c}, acc when l == s_line and s_col - 1 == c -> Map.put(acc, :west, true)
+      {l, c}, acc when l == s_line and s_col + 1 == c -> Map.put(acc, :east, true)
+      {l, c}, acc when c == s_col and s_line + 1 == l -> Map.put(acc, :south, true)
+      {l, c}, acc when c == s_col and s_line - 1 == l -> Map.put(acc, :north, true)
+    end)
+    |> case do
+      %{north: _, south: _} -> "|"
+      %{east: _, west: _} -> "-"
+      %{north: _, east: _} -> "L"
+      %{north: _, west: _} -> "J"
+      %{south: _, west: _} -> "7"
+      %{south: _, east: _} -> "F"
+    end
+  end
+
+  @doc """
+  Operates on a cleaned up grid where the `S` has been converted to its functional
+  role and any characters not on the pipe-path have been replaced with a `.`.
+
+  F J is equivalent to a full transition (|)... flip state!
+  F 7 is sort of a "failed" transition... go back to whatever your state was
+  L 7 is equivalent to a full transition (|)
+  L J is sort of a "failed" transition... flip state!
+
+  `state` represents whether you are:
+    - fully inside the loop (start counting!
+    - fully outside the loop
+
+  `opening` is like the "opening tag" of a pair. E.g. the "F" in an "FJ" pair.
+  This is need to help us track with being halfway in or out
+  """
+
+  def count_inside_tiles_in_row(row_nodes_list, opening \\ nil, state \\ false, cnt \\ 0)
+  def count_inside_tiles_in_row([], _, _, cnt), do: cnt
+
+  # Full transition: flip state immediately!
+  def count_inside_tiles_in_row(["|" | tail], _opening, state, cnt) do
+    count_inside_tiles_in_row(tail, "|", !state, cnt)
+  end
+
+  def count_inside_tiles_in_row(["-" | tail], opening, state, cnt) do
+    count_inside_tiles_in_row(tail, opening, state, cnt)
+  end
+
+  # Open an F tag
+  def count_inside_tiles_in_row(["F" | tail], _, state, cnt) do
+    count_inside_tiles_in_row(tail, "F", state, cnt)
+  end
+
+  # Open an L tag
+  def count_inside_tiles_in_row(["L" | tail], _, state, cnt) do
+    count_inside_tiles_in_row(tail, "L", state, cnt)
+  end
+
+  # complete FJ transition --> flip state!
+  def count_inside_tiles_in_row(["J" | tail], "F", state, cnt) do
+    count_inside_tiles_in_row(tail, nil, !state, cnt)
+  end
+
+  # F7 = incomplete. nil out the opening tag
+  def count_inside_tiles_in_row(["7" | tail], "F", state, cnt) do
+    count_inside_tiles_in_row(tail, nil, state, cnt)
+  end
+
+  # complete L7 transition --> flip state
+  def count_inside_tiles_in_row(["7" | tail], "L", state, cnt) do
+    count_inside_tiles_in_row(tail, nil, !state, cnt)
+  end
+
+  # LJ = incomplete. nil out the opening tag
+  def count_inside_tiles_in_row(["J" | tail], "L", state, cnt) do
+    count_inside_tiles_in_row(tail, nil, state, cnt)
+  end
+
+  # if you are INSIDE the loop, start counting dots!!
+  def count_inside_tiles_in_row(["." | tail], opening, true, cnt) do
+    count_inside_tiles_in_row(tail, opening, true, cnt + 1)
+  end
+
+  # catch-all: just advance the parser
+  def count_inside_tiles_in_row([_ | tail], opening, state, cnt) do
+    count_inside_tiles_in_row(tail, opening, state, cnt)
   end
 
   @doc """
@@ -318,47 +309,40 @@ defmodule Aoc.Day10 do
   def solve_pt2(file) do
     grid = Grid.from_file(file)
 
+    start_node = Grid.start_node(grid)
+
     # Set of all coords that are on the pipe's continuous path
     path_set =
-      grid
-      |> Grid.start_node()
+      start_node
       |> walk(grid, [])
       |> MapSet.new()
 
-    IO.inspect(path_set)
-    # #  We need the initial grid to solve for S
-    # grid = Grid.from_file(file)
-    # start_node = Grid.start_node(grid)
+    # Replace the S with the character it gets used as
+    s = s_is_a(grid, start_node.loc)
+    grid = Map.put(grid, start_node.loc, %{start_node | symbol: s})
 
-    # # What is S functioning as?
-    # s_as = Transformer.convert_s(grid, start_node.loc)
+    # Replaces any non-pipe character with a "."
+    grid = clean_junk_from_grid(grid, path_set)
 
-    # # Now we operate on the larger grid
-    # grid = Transformer.zoom_in(file, s_as)
-    # # The list of loc's indicating where the pipe runs
-    # pipe_keys =
-    #   grid
-    #   |> Grid.start_node()
-    #   |> walk(grid, [])
-
-    # # non_pipe_keys =
-    # non_pipe_set = grid |> Map.drop(pipe_keys) |> Map.keys() |> MapSet.new()
-
-    # # With the zoomed in variant, {1, 1} is guaranteed to be outside the loop
-    # erase(non_pipe_set, {1, 1})
+    1..Grid.row_cnt(grid)
+    |> Enum.map(fn r ->
+      grid
+      |> Grid.row(r)
+      |> count_inside_tiles_in_row()
+    end)
+    |> Enum.sum()
   end
 
-  @doc """
-  The functionality here is similar to a "flood" or "fill" operation in a drawing
-  program: you click on a point, and all the points adjacent to it get filled
-  with a color.  In our case, however, we are REMOVING points from the given set
-  of points.
-  """
-  def erase(set, this_loc) do
-    set
-    |> Node.neighbors(this_loc)
-    |> Enum.reduce(MapSet.delete(set, this_loc), fn loc, acc ->
-      erase(acc, loc)
+  @spec clean_junk_from_grid(Grid.t(), MapSet.t()) :: Grid.t()
+  def clean_junk_from_grid(grid, path_set) do
+    grid
+    |> Enum.map(fn {loc, node} ->
+      if MapSet.member?(path_set, loc) do
+        {loc, node}
+      else
+        {loc, %{node | symbol: "."}}
+      end
     end)
+    |> Enum.into(%{})
   end
 end
