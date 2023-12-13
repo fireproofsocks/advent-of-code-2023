@@ -2,6 +2,8 @@ defmodule Aoc.Day10 do
   @moduledoc """
   Pipe Maze
   https://adventofcode.com/2023/day/10
+
+  This is a mess of different modules... some functions should be moved
   """
 
   defmodule Node do
@@ -61,6 +63,26 @@ defmodule Aoc.Day10 do
         do: true
 
     def open?(_, _), do: false
+
+    @doc """
+    Returns an unordered set (i.e. a MapSet) of the location coordinates of nodes
+    neighboring to the given location coordinate. Every node in the grid will have
+    2, 3, or 4 neighbors: corner nodes have only 2 neighbors, edge nodes have 3,
+    and every other node has 4 (to the North, South, East, and West).
+    Unlike `connections/2`, no criteria is evaluated to filter out nodes.
+    """
+    @spec neighbors(all_locs :: MapSet.t(), loc :: loc()) :: MapSet.t()
+    def neighbors(all_locs, {line, col}) do
+      # north, south, east, west
+      [
+        {line - 1, col},
+        {line + 1, col},
+        {line, col + 1},
+        {line, col - 1}
+      ]
+      |> Enum.filter(fn loc -> MapSet.member?(all_locs, loc) end)
+      |> MapSet.new()
+    end
   end
 
   defmodule Grid do
@@ -99,29 +121,122 @@ defmodule Aoc.Day10 do
     end
   end
 
-  @doc """
-  There COULD be 4 paths out of the start node (2 of them could be dead-ends, or
-  there could 2 loops are defined), but the puzzle input doesn't appear that sinister:
-  only *ONE* loop is defined (i.e. "S" has 2 connections). So the puzzle here is
-  to traverse the pipes until we get back to "S" and see how long the path was.
-  Divide by 2 will tell you how far away the furthest node was from the start.
+  defmodule Transformer do
+    alias Aoc.Day10.Node
 
-  Find the tile (i.e node) in the loop that is farthest from the starting position.
-  ## Examples
+    @map %{
+      "|" => [
+        ".|.",
+        ".|.",
+        ".|."
+      ],
+      "-" => [
+        "...",
+        "---",
+        "..."
+      ],
+      "L" => [
+        ".|.",
+        ".L-",
+        "..."
+      ],
+      "J" => [
+        ".|.",
+        "-J.",
+        "..."
+      ],
+      "7" => [
+        "...",
+        "-7.",
+        ".|."
+      ],
+      "F" => [
+        "...",
+        ".F-",
+        ".|."
+      ],
+      "." => [
+        "...",
+        "...",
+        "..."
+      ],
+      ## ???
+      "S" => [
+        "???",
+        "???",
+        "???"
+      ]
+    }
+    @doc """
+    Transforms the input in the given file to stretch it out by zooming in on it.
 
-      iex> Aoc.Day10.solve_pt1("priv/day10_example.txt")
-      iex> Aoc.Day10.solve_pt1("priv/day10_ex1.txt")
-      iex> Aoc.Day10.solve_pt1("priv/day10.txt")
-  """
-  def solve_pt1(file) do
-    grid = Grid.from_file(file)
+    We need to know how the `S` start character is behaving.
+    """
+    @spec zoom_in(file :: String.t(), s_as :: String.t()) :: Grid.t()
+    def zoom_in(file, s_as) do
+      file
+      |> File.stream!()
+      |> Enum.flat_map(fn line -> convert_line(line, s_as) end)
+      |> Enum.with_index(1)
+      |> Enum.reduce(%{}, fn {line, line_number}, acc ->
+        line
+        |> String.trim()
+        |> String.graphemes()
+        |> Enum.with_index(1)
+        |> Enum.reduce(acc, fn {char, column}, acc ->
+          Map.put(acc, {line_number, column}, %Node{
+            loc: {line_number, column},
+            symbol: char
+          })
+        end)
+      end)
+    end
 
-    path =
-      grid
-      |> Grid.start_node()
-      |> walk(grid, [])
+    @doc """
+    s_as is the character that "S" actually behaves as. We need to know its actual
+    function for the conversion.
+    """
+    def convert_line(line, s_as) do
+      line
+      |> String.trim()
+      |> String.graphemes()
+      |> Enum.map(fn
+        "S" ->
+          [l1, <<c1::binary-size(1), _::binary-size(1), c3::binary-size(1)>>, l3] =
+            Map.fetch!(@map, s_as)
 
-    trunc(length(path) / 2)
+          [l1, c1 <> "S" <> c3, l3]
+
+        char ->
+          Map.fetch!(@map, char)
+      end)
+      |> Enum.reduce(["", "", ""], fn [l1, l2, l3], [acc1, acc2, acc3] ->
+        [acc1 <> l1, acc2 <> l2, acc3 <> l3]
+      end)
+    end
+
+    @doc """
+    S is ambiguous: its actual symbol depends on its context in the grid.
+    This is sort of the opposite business logic in the `open?/2` function.
+    """
+    def convert_s(grid, {s_line, s_col} = s_loc) do
+      connections = Node.connections(grid, s_loc)
+
+      Enum.reduce(connections, %{}, fn
+        {l, c}, acc when l == s_line and s_col - 1 == c -> Map.put(acc, :west, true)
+        {l, c}, acc when l == s_line and s_col + 1 == c -> Map.put(acc, :east, true)
+        {l, c}, acc when c == s_col and s_line + 1 == l -> Map.put(acc, :south, true)
+        {l, c}, acc when c == s_col and s_line - 1 == l -> Map.put(acc, :north, true)
+      end)
+      |> case do
+        %{north: _, south: _} -> "|"
+        %{east: _, west: _} -> "-"
+        %{north: _, east: _} -> "L"
+        %{north: _, west: _} -> "J"
+        %{south: _, west: _} -> "7"
+        %{south: _, east: _} -> "F"
+      end
+    end
   end
 
   # special case for the starting node (where no locs have been accumulated; there
@@ -151,5 +266,99 @@ defmodule Aoc.Day10 do
     grid
     |> Map.fetch!(next_loc)
     |> walk(grid, [this_node.loc | acc])
+  end
+
+  @doc """
+  There COULD be 4 paths out of the start node (2 of them could be dead-ends, or
+  there could 2 loops are defined), but the puzzle input doesn't appear that sinister:
+  only *ONE* loop is defined (i.e. "S" has only 2 connections). So the puzzle here is
+  to traverse the pipes until we get back to "S" and see how long the path was.
+  Divide by 2 will tell you how far away the furthest node was from the start.
+
+  Find the tile (i.e node) in the loop that is farthest from the starting position.
+
+  ## Examples
+
+      iex> Aoc.Day10.solve_pt1("priv/day10_example.txt")
+      iex> Aoc.Day10.solve_pt1("priv/day10_ex1.txt")
+      iex> Aoc.Day10.solve_pt1("priv/day10.txt")
+  """
+  def solve_pt1(file) do
+    grid = Grid.from_file(file)
+
+    path =
+      grid
+      |> Grid.start_node()
+      |> walk(grid, [])
+
+    trunc(length(path) / 2)
+  end
+
+  @doc """
+  In part 2 the pipe defines a boundary; How many tiles are enclosed by its loop?
+
+  The annoying gotcha example they give is this (where `O` indicates "Outside" and
+  `I` indicates "inside"):
+
+   ```
+        ..........
+        .S------7.
+        .|F----7|.
+        .||OOOO||.
+        .||OOOO||.
+        .|L-7F-J|.
+        .|II||II|.
+        .L--JL--J.
+        ..........
+  ```
+
+  That shape is subtly communicating that there is a "leak" down the bottom; i.e.
+  that there is more information there that is NOT in the raw data.
+  """
+  def solve_pt2(file) do
+    grid = Grid.from_file(file)
+
+    # Set of all coords that are on the pipe's continuous path
+    path_set =
+      grid
+      |> Grid.start_node()
+      |> walk(grid, [])
+      |> MapSet.new()
+
+    IO.inspect(path_set)
+    # #  We need the initial grid to solve for S
+    # grid = Grid.from_file(file)
+    # start_node = Grid.start_node(grid)
+
+    # # What is S functioning as?
+    # s_as = Transformer.convert_s(grid, start_node.loc)
+
+    # # Now we operate on the larger grid
+    # grid = Transformer.zoom_in(file, s_as)
+    # # The list of loc's indicating where the pipe runs
+    # pipe_keys =
+    #   grid
+    #   |> Grid.start_node()
+    #   |> walk(grid, [])
+
+    # # non_pipe_keys =
+    # non_pipe_set = grid |> Map.drop(pipe_keys) |> Map.keys() |> MapSet.new()
+
+    # # With the zoomed in variant, {1, 1} is guaranteed to be outside the loop
+    # erase(non_pipe_set, {1, 1})
+  end
+
+  @doc """
+  The functionality here is similar to a "flood" or "fill" operation in a drawing
+  program: you click on a point, and all the points adjacent to it get filled
+  with a color.  In our case, however, we are REMOVING points from the given set
+  of points.
+  """
+  def erase(set, this_loc) do
+    set
+    |> Node.neighbors(this_loc)
+    |> Enum.reduce(MapSet.delete(set, this_loc), fn loc, acc ->
+      erase(acc, loc)
+    end)
   end
 end
